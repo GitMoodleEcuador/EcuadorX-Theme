@@ -1,0 +1,164 @@
+---
+#------------------------------
+#     └── roles
+#         ├── update-com-theme
+#         │   └── tasks
+#         │       └── main.yml
+#
+# extra-vars:
+# theme_dir: /edx/app/edxapp/themes
+# theme_folder: racoongang-theme
+# server_vars_path: '/edx/app/edx_ansible/server-vars.yml'
+#------------------------------
+
+- debug: msg="{{theme_folder_main }}"
+- debug: msg="{{SITE_THEME}}"
+
+- name: Get time
+  local_action: shell date +%s
+  register: current_back
+  run_once: true
+  tags: skip_ansible_lint
+
+- name: Check if themes root dir exist
+  stat:
+    path: "{{ theme_dir }}"
+  register: check_theme_root_exist
+
+- name: Check if "{{server_vars_path}}" exist
+  stat:
+    path: "{{ server_vars_path }}"
+  register: server_vars
+
+- name: Backup server-vars.yml
+  command: cp "{{ server_vars_path }}" "{{ server_vars_path }}_{{ current_back.stdout }}"
+  become_method: sudo
+  become: no
+  become_user: root
+  when: check_theme_root_exist.stat.exists and server_vars.stat.exists
+
+- name: Ensure that server-vars contain EDXAPP_COMPREHENSIVE_THEME_DIR
+  lineinfile:
+  args:
+    dest: "{{ server_vars_path }}"
+    regexp: '^EDXAPP_COMPREHENSIVE_THEME_DIR:'
+    insertafter: EOF
+    line: 'EDXAPP_COMPREHENSIVE_THEME_DIR: "{{ theme_dir }}/{{ theme_folder }}"'
+    state: present
+  become_method: sudo
+  become: no
+  become_user: root
+  when: check_theme_root_exist.stat.exists and server_vars.stat.exists
+
+- name: Ensure that server-vars contain EDXAPP_COMPREHENSIVE_THEME_DIRS
+  lineinfile:
+  args:
+    dest: "{{ server_vars_path }}"
+    regexp: '^EDXAPP_COMPREHENSIVE_THEME_DIRS:'
+    insertafter: EOF
+    line: "EDXAPP_COMPREHENSIVE_THEME_DIRS:  [{{theme_dir}}]"
+    state: present
+  become_method: sudo
+  become: no
+  become_user: root
+  when: check_theme_root_exist.stat.exists and server_vars.stat.exists
+
+- name: Ensure that server-vars contain EDXAPP_DEFAULT_SITE_THEME
+  lineinfile:
+  args:
+    dest: "{{ server_vars_path }}"
+    regexp: '^EDXAPP_DEFAULT_SITE_THEME:'
+    insertafter: EOF
+    line: 'EDXAPP_DEFAULT_SITE_THEME: "{{ SITE_THEME }}"'
+    state: present
+  become_method: sudo
+  become: no
+  become_user: root
+  when: check_theme_root_exist.stat.exists and server_vars.stat.exists
+
+- name: Ensure that server-vars contain EDXAPP_ENABLE_COMPREHENSIVE_THEMING
+  lineinfile:
+  args:
+    dest: "{{server_vars_path}}"
+    regexp: '^EDXAPP_ENABLE_COMPREHENSIVE_THEMING:'
+    insertafter: EOF
+    line: 'EDXAPP_ENABLE_COMPREHENSIVE_THEMING: true'
+    state: present
+  become_method: sudo
+  become: yes
+  become_user: root
+  when: check_theme_root_exist.stat.exists and server_vars.stat.exists
+
+- name: Check if lms.env.json exist
+  stat:
+    path: "{{ edxapp_data_dir }}/lms.env.json"
+  register: lms_json
+
+- name: Check if cms.env.json exist
+  stat:
+    path: "{{ edxapp_data_dir }}/cms.env.json"
+  register: cms_json
+
+- name: Backup lms.env.json and cms.env.json in "{{ edxapp_data_dir }}"
+  command: cp "{{ edxapp_data_dir }}/{{ item }}" "{{ edxapp_data_dir }}/{{ item }}_{{ current_back.stdout }}"
+  with_items:
+    - "lms.env.json"
+    - "cms.env.json"
+  become_method: sudo
+  become: no
+  become_user: root
+  when: (lms_json.stat.exists) and (cms_json.stat.exists)
+
+- name: Copy update script
+  copy:
+    src: update-edxapp-json.py
+    dest: /tmp/update-edxapp-json.py
+
+- name: Update lms.env.json and cms.env.json
+  script: "/tmp/update-edxapp-json.py {{ edxapp_data_dir }} {{ theme_dir }}/{{ theme_folder }} {{theme_dir}} {{ SITE_THEME }}"
+  become: no
+  become_user: edxapp
+
+- name: Remove update script
+  file:
+    path: /tmp/update-edxapp-json.py
+    state: absent
+
+- name: Restart edxapp
+  command: "/home/administradorx/edx-ginkgo.2-5/ctlscript.sh restart"
+  become_method: sudo
+  become: yes
+  become_user: administradorx
+  tags: skip_ansible_lint
+
+- name: Copy update assets script
+  copy:
+    src: edxapp-update-assets-lms
+    dest: /tmp/update-assets-lms
+
+- name: Update lms assets with paver
+  script: /tmp/update-assets-lms
+  become_method: sudo
+  become: no
+  become_user: root
+
+- name: Remove update assets script
+  file:
+    path: /tmp/update-assets-lms
+    state: absent
+
+- name: Get current edx-platform git branch
+  shell: cd /edx/app/edxapp/edx-platform/ && git branch | grep \* | sed "s/(\|)//g" | sed "s/*//g" | awk '{print $NF }'
+  register: git_branch_output
+  when: ("{{ edx_full_update }}" == 'yes')
+  become_method: sudo
+  become: no
+  become_user: edxapp
+
+- name: Run /edx/bin/update
+  shell: /edx/bin/update edx-platform "{{ git_branch_output.stdout }}" > /tmp/theme-update-edx.log
+  become_method: sudo
+  become: no
+  become_user: root
+  when: (check_theme_root_exist.stat.exists) and (server_vars.stat.exists) and ("{{ edx_full_update }}" == 'yes')
+

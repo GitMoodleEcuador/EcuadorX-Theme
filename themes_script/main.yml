@@ -1,0 +1,50 @@
+---
+- hosts: "{{ edx_hosts | default('localhost') }}"
+  pre_tasks:
+    - name: Check if devstack exist
+      stat:
+        path: "/vagrant"
+      register: devstack
+
+    - name: Create themes root dir
+      file:
+        path: "{{ theme_dir_main }}"
+        state: directory
+      become_method: sudo
+      become: no
+      become_user: edxapp
+
+    - name: set_fact script_mode
+      set_fact:
+        script_mode: "{{ mode }}"
+      when: mode is defined
+
+    - name: Check if devstack
+      fail:
+        msg: "Playbook not applicable for devstack"
+      when: devstack.stat.exists
+
+  roles:
+    - role: theme-zip
+      theme_file_path: "{{ local_zip }}"
+      when: ("{{ script_mode }}" == 'l') and (script_mode is defined) and (local_zip is defined)
+
+    - role: theme-zip
+      theme_url: "{{ remote_zip }}"
+      when: ("{{ script_mode }}" == 'r') and (script_mode is defined) and (remote_zip is defined)
+
+    - role: branch
+      branch: "{{ theme_branch }}"
+      repo: "https://github.com/raccoongang/themes_for_themex.io.git"
+      when: ("{{ script_mode }}" == 'b') and (script_mode is defined) and (branch is defined)
+
+    - role: branch
+      branch: "{{ theme_branch }}"
+      repo: "{{ theme_repo }}"
+      when: (("{{ script_mode }}" == 'br') or ("{{ script_mode }}" == 'brh') or ("{{ script_mode }}" == 'brhi')) and (script_mode is defined) and (theme_branch is defined) and (repo is defined)
+
+    - role: update-com-theme
+      theme_dir: "{{ theme_folder_main }}"
+      ignore_errors: no
+      SITE_THEME: "{{ theme_folder }}"
+      when: (theme_folder_main is defined) and (theme_folder is defined)

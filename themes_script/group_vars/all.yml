@@ -1,0 +1,13 @@
+---
+theme_dir_main: "/edx/app/edxapp/themes"
+server_vars_path: '/edx/app/edx_ansible/server-vars.yml'
+raccoongang_theme_dir_main: 'raccoongang_theme'
+edxapp_data_dir: "/home/administradorx/edx-ginkgo.2-5/apps/edx/conf/"
+git_ssh_key: "~/.ssh/id_rsa_git"
+edx_full_update: "no"
+required_packages:
+    - python
+    - python-pip
+    - libffi-dev
+    - gcc
+    - libssl-dev

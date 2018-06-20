@@ -1,0 +1,17 @@
+---
+
+- name: Update repositories cache and install packages
+  apt:
+    name: "{{ item }}"
+    update_cache: yes
+  with_items: "{{ required_packages }}"
+  become_method: sudo
+  become: no
+  become_user: root
+
+- name: Install pip requirements
+  pip:
+    name: "{{ item }}"
+    virtualenv: "~/.edxthemevenv"
+    state: present
+  with_items: "{{ pip_requirements }}"

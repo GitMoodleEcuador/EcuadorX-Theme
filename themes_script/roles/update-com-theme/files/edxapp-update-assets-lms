@@ -1,0 +1,12 @@
+#!/bin/bash
+cd /home/administradorx/edx-ginkgo.2-5/apps/edx/edx-platform
+source /home/administradorx/edx-ginkgo.2-5/apps/edx/scripts/edxapp_env
+
+# The default settings set in edxapp_env can be overridden
+# using the var $EDX_PLATFORM_SETTINGS_OVERRIDE
+
+if [[ -n "$EDX_PLATFORM_SETTINGS_OVERRIDE" ]]; then
+    export EDX_PLATFORM_SETTINGS="$EDX_PLATFORM_SETTINGS_OVERRIDE"
+fi
+
+sudo -E -u root env "PATH=$PATH" /home/administradorx/edx-ginkgo.2-5/apps/edx/venvs/edxapp/bin/paver update_assets lms --settings $EDX_PLATFORM_SETTINGS

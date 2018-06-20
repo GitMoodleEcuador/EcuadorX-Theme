@@ -1,0 +1,34 @@
+---
+- name: Remove theme directory
+  file:
+    path: "{{ theme_dir_main }}/{{ branch }}"
+    state: absent
+  become_method: sudo
+  become: nop
+  become_user: edxapp
+
+- include: private-repo-ssh.yml
+  when: ("{{ script_mode }}" == 'br')
+
+- name: Clone git theme repo
+  git:
+    repo: "{{ repo }}"
+    version: "{{ branch }}"
+    dest: "{{ theme_dir_main }}/{{raccoongang_theme_dir_main}}/{{ branch }}"
+    ssh_opts: "-o StrictHostKeyChecking=no"
+    accept_hostkey: yes
+    force: yes
+  become_method: sudo
+  become: no
+  become_user: edxapp
+
+- name: Get theme_folder
+  set_fact:
+    theme_folder: "{{ branch }}"
+- name: Get theme_folder
+  set_fact:
+    theme_folder_main: "{{ theme_dir_main }}/{{raccoongang_theme_dir_main}}"
+
+- debug: msg="{{ theme_folder_main }}"
+- debug: msg="{{ theme_folder }}"
+
